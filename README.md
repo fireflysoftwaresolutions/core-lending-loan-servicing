@@ -1476,3 +1476,7 @@ limitations under the License.
 ---
 
 **Firefly OpenCore Banking Platform** - Building the future of open banking infrastructure.
+
+## Audited periodic calendar source slice
+
+See [the bounded calendar contract and remaining adoption gates](docs/PERIODIC_CALENDAR_SLICE.md) before enabling the calendar path. This first source slice does not establish full lending financial acceptance.

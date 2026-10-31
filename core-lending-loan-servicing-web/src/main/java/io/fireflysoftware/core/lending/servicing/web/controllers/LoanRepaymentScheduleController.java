@@ -19,7 +19,7 @@ package io.fireflysoftware.core.lending.servicing.web.controllers;
 
 import org.fireflyframework.core.filters.FilterRequest;
 import org.fireflyframework.core.queries.PaginationResponse;
-import io.fireflysoftware.core.lending.servicing.core.schedule.AmortizationCalendarService;
+import io.fireflysoftware.core.lending.servicing.core.schedule.AmortizationCalendarOperations;
 import io.fireflysoftware.core.lending.servicing.core.services.LoanRepaymentScheduleService;
 import io.fireflysoftware.core.lending.servicing.interfaces.dtos.LoanRepaymentScheduleDTO;
 import io.fireflysoftware.core.lending.servicing.interfaces.dtos.RestoreScheduleRequest;
@@ -43,7 +43,7 @@ import java.util.UUID;
 public class LoanRepaymentScheduleController {
 
     private final LoanRepaymentScheduleService service;
-    private final AmortizationCalendarService calendars;
+    private final AmortizationCalendarOperations calendars;
 
     @PostMapping("/calendar")
     @Operation(summary = "Store the amortization calendar for a servicing case")
