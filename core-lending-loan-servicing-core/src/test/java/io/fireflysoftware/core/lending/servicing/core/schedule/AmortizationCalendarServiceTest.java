@@ -25,55 +25,37 @@ import io.fireflysoftware.core.lending.servicing.interfaces.enums.AmortizationMe
 import io.fireflysoftware.core.lending.servicing.interfaces.enums.PaymentFrequencyEnum;
 import io.fireflysoftware.core.lending.servicing.interfaces.enums.ScheduleStatus;
 import io.fireflysoftware.core.lending.servicing.models.entities.LoanRepaymentSchedule;
-import io.fireflysoftware.core.lending.servicing.models.repositories.LoanRepaymentScheduleRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.lenient;
 
-@ExtendWith(MockitoExtension.class)
 class AmortizationCalendarServiceTest {
 
-    @Mock
-    private LoanRepaymentScheduleRepository schedules;
-
-    private final ConcurrentHashMap<UUID, LoanRepaymentSchedule> rows = new ConcurrentHashMap<>();
-    private AmortizationCalendarService service;
-    private final UUID caseId = UUID.randomUUID();
+    private AuditedCalendarServiceTest.Fixture fixture;
+    private final java.util.Map<UUID, LoanRepaymentSchedule> rows = new java.util.AbstractMap<>() {
+        @Override public java.util.Set<Entry<UUID, LoanRepaymentSchedule>> entrySet() {
+            return fixture.rows().entrySet();
+        }
+    };
+    private AmortizationCalendarOperations service;
+    private UUID caseId;
 
     @BeforeEach
-    void setUp() {
-        lenient().when(schedules.save(any())).thenAnswer(invocation -> {
-            LoanRepaymentSchedule row = invocation.getArgument(0);
-            rows.put(row.getLoanRepaymentScheduleId(), row);
-            return Mono.just(row);
-        });
-        lenient().when(schedules.findById(any(UUID.class))).thenAnswer(invocation ->
-                Mono.justOrEmpty(rows.get(invocation.getArgument(0))));
-        lenient().when(schedules.findByLoanServicingCaseId(any())).thenAnswer(invocation -> {
-            UUID id = invocation.getArgument(0);
-            return Flux.fromIterable(rows.values().stream()
-                    .filter(row -> id.equals(row.getLoanServicingCaseId()))
-                    .toList());
-        });
-        lenient().when(schedules.deleteById(any(UUID.class))).thenAnswer(invocation -> {
-            rows.remove(invocation.getArgument(0));
-            return Mono.empty();
-        });
-        service = new AmortizationCalendarService(schedules);
+    void setUp(org.junit.jupiter.api.TestInfo test) {
+        fixture = new AuditedCalendarServiceTest.Fixture();
+        caseId = fixture.caseId;
+        if (test.getTestMethod().orElseThrow().getName().startsWith("restructure")) {
+            fixture.terms("900.00", "12.00", 3, LocalDate.of(2026, 3, 1));
+        } else {
+            fixture.terms("1200.00", "12.00", 12, LocalDate.of(2026, 2, 1));
+        }
+        service = fixture.service;
     }
 
     @Test
@@ -119,6 +101,7 @@ class AmortizationCalendarServiceTest {
                 .map(LoanRepaymentScheduleDTO::getLoanRepaymentScheduleId)
                 .toList();
 
+        fixture.terms("600.00", "6.00", 2, LocalDate.of(2026, 4, 1));
         ScheduleRevisionDTO revision = service.replace(caseId, request(
                 new BigDecimal("600.00"), new BigDecimal("6.00"), 2, LocalDate.of(2026, 4, 1))).block();
 
@@ -136,6 +119,7 @@ class AmortizationCalendarServiceTest {
                 .extracting(LoanRepaymentScheduleDTO::getLoanRepaymentScheduleId)
                 .containsExactlyInAnyOrderElementsOf(originalIds);
 
+        fixture.terms("900.00", "12.00", 3, LocalDate.of(2026, 3, 1));
         List<LoanRepaymentScheduleDTO> restored = service.restore(caseId, new RestoreScheduleRequest(
                 originalIds,
                 revision.getCurrent().stream().map(LoanRepaymentScheduleDTO::getLoanRepaymentScheduleId).toList())).block();
