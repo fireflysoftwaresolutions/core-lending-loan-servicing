@@ -25,6 +25,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
+import org.fireflyframework.web.error.exceptions.InvalidRequestException;
+import org.fireflyframework.web.error.exceptions.ServiceUnavailableException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -55,7 +57,7 @@ public final class AuditedAmortizationCalendarService implements AmortizationCal
     @Override
     public Mono<List<LoanRepaymentScheduleDTO>> store(UUID caseId, StoreAmortizationCalendarRequest request) {
         final PeriodicCalendarIntent intent;
-        try { intent = PeriodicCalendarIntent.capture(request); }
+        try { intent = capture(request); }
         catch (RuntimeException invalid) { return Mono.error(invalid); }
         return mutate(caseId, intent, false).map(ScheduleRevisionDTO::getCurrent);
     }
@@ -63,7 +65,7 @@ public final class AuditedAmortizationCalendarService implements AmortizationCal
     @Override
     public Mono<ScheduleRevisionDTO> replace(UUID caseId, StoreAmortizationCalendarRequest request) {
         final PeriodicCalendarIntent intent;
-        try { intent = PeriodicCalendarIntent.capture(request); }
+        try { intent = capture(request); }
         catch (RuntimeException invalid) { return Mono.error(invalid); }
         return mutate(caseId, intent, true);
     }
@@ -144,6 +146,16 @@ public final class AuditedAmortizationCalendarService implements AmortizationCal
                         })));
             })));
         });
+    }
+
+    private static PeriodicCalendarIntent capture(StoreAmortizationCalendarRequest request) {
+        if (request == null) throw invalidInput();
+        try { return PeriodicCalendarIntent.capture(request); }
+        catch (IllegalArgumentException invalid) { throw invalidInput(); }
+    }
+
+    private static InvalidRequestException invalidInput() {
+        return new InvalidRequestException("CALENDAR_INPUT_INVALID", "Exact supported persisted calendar terms required");
     }
 
     private Mono<LoanServicingCase> lockedCase(UUID caseId) {
@@ -307,6 +319,9 @@ public final class AuditedAmortizationCalendarService implements AmortizationCal
                 .paidAmount(row.getPaidAmount()).createdAt(row.getCreatedAt()).updatedAt(row.getUpdatedAt()).build();
     }
 
-    private void requireOwner() { if (owner == null) throw new IllegalStateException("Paired durable calendar audit resources required"); }
+    private void requireOwner() {
+        if (owner == null) throw new ServiceUnavailableException("CALENDAR_OWNER_UNAVAILABLE",
+                "Paired durable calendar audit resources required", "loan-repayment-calendar", null, null);
+    }
     private static OptimisticLockingFailureException stale() { return new OptimisticLockingFailureException("Exact current unpaid calendar and case scope required"); }
 }

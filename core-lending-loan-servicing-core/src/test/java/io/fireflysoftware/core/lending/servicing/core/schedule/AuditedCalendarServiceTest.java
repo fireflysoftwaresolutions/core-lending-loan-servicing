@@ -120,7 +120,7 @@ class AuditedCalendarServiceTest {
     @Test void missingOwnerRefusesBeforeAnyCalendarAccess() {
         var service = new AuditedAmortizationCalendarService((AuditedCalendarResources) null);
         assertThatThrownBy(() -> service.store(UUID.randomUUID(), request("1200.00", "12.00", 12, LocalDate.of(2026, 2, 1))).block())
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(org.fireflyframework.web.error.exceptions.ServiceUnavailableException.class);
     }
 
     @Test void actualMissingCaseCannotAppendOrWrite() {
@@ -141,7 +141,7 @@ class AuditedCalendarServiceTest {
         var f = new Fixture(); var first = LocalDate.of(2026, 2, 1); f.terms("1200.00", "12.00", 12, first);
         f.service.store(f.caseId, request("1200.00", "12.00", 12, first)).block();
         var before = f.database.driver.copy(); int creates = f.database.driver.creates;
-        assertThatThrownBy(() -> f.service.replace(f.caseId, request("0.00", "12.00", 12, first)).block()).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> f.service.replace(f.caseId, request("0.00", "12.00", 12, first)).block()).isInstanceOf(org.fireflyframework.web.error.exceptions.InvalidRequestException.class);
         assertThat(f.database.driver.tables).isEqualTo(before);
         assertThat(f.database.driver.creates).isEqualTo(creates);
     }
@@ -329,23 +329,6 @@ class AuditedCalendarServiceTest {
         assertThat(other.driver.creates).isZero();
     }
 
-    @Test void defaultContextRoutesTheControllerOnlyThroughTheFunctionalAuditedBean() {
-        try (var context = new org.springframework.context.annotation.AnnotationConfigApplicationContext()) {
-            var business = org.mockito.Mockito.mock(io.r2dbc.spi.ConnectionFactory.class);
-            context.registerBean(io.r2dbc.spi.ConnectionFactory.class, () -> business);
-            context.registerBean(io.fireflysoftware.core.lending.servicing.core.services.LoanRepaymentScheduleService.class,
-                    () -> org.mockito.Mockito.mock(io.fireflysoftware.core.lending.servicing.core.services.LoanRepaymentScheduleService.class));
-            context.scan("io.fireflysoftware.core.lending.servicing.core.schedule");
-            context.register(io.fireflysoftware.core.lending.servicing.web.controllers.LoanRepaymentScheduleController.class);
-            context.refresh();
-            assertThat(context.getBeansOfType(AmortizationCalendarOperations.class)).hasSize(1);
-            assertThat(context.containsBean("amortizationCalendarService")).isFalse();
-            var controller = context.getBean(io.fireflysoftware.core.lending.servicing.web.controllers.LoanRepaymentScheduleController.class);
-            assertThatThrownBy(() -> controller.storeCalendar(UUID.randomUUID(), request("1200.00", "12.00", 12, LocalDate.of(2026, 2, 1))).block()).isInstanceOf(IllegalStateException.class);
-            org.mockito.Mockito.verifyNoInteractions(business);
-        }
-    }
-
     @Test void maximumPeriodCalendarsRespectTheRetainedHistoryBoundBeforeWriting() {
         var f = new Fixture(); var first = LocalDate.of(2026, 2, 1); f.terms("60000.00", "0.00", 600, first);
         assertThat(f.service.store(f.caseId, request("60000.00", "0.00", 600, first)).block()).hasSize(600);
@@ -381,4 +364,22 @@ class AuditedCalendarServiceTest {
         assertThat(database.driver.rollbacks).isEqualTo(1);
         assertThat(database.driver.closes).isEqualTo(1);
     }
+    @Test void missingRequestIsTyped400WithoutOwnerAccess() {
+        var service = new AuditedAmortizationCalendarService((AuditedCalendarResources) null);
+        assertThatThrownBy(() -> service.store(UUID.randomUUID(), null).block())
+                .isInstanceOf(org.fireflyframework.web.error.exceptions.InvalidRequestException.class)
+                .satisfies(error -> assertThat(((org.fireflyframework.web.error.exceptions.InvalidRequestException) error).getCode())
+                        .isEqualTo("CALENDAR_INPUT_INVALID"));
+    }
+
+    @Test void unrelatedPersistenceArgumentFailureIsNeverRelabeledAsInputOrOwnerRefusal() {
+        var f = new Fixture(); var first = LocalDate.of(2026, 2, 1); f.terms("1200.00", "12.00", 12, first);
+        f.database.driver.beforeRead = () -> { throw new IllegalArgumentException("controlled driver failure"); };
+        assertThatThrownBy(() -> f.service.store(f.caseId, request("1200.00", "12.00", 12, first)).block())
+                .isNotInstanceOf(org.fireflyframework.web.error.exceptions.InvalidRequestException.class)
+                .isNotInstanceOf(org.fireflyframework.web.error.exceptions.ServiceUnavailableException.class);
+        assertThat(f.database.driver.writes).isZero();
+        assertThat(f.database.driver.nativeEnters).isZero();
+    }
+
 }

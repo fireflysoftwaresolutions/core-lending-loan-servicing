@@ -47,3 +47,36 @@ A post-commit cleanup failure suppresses the result but cannot undo an already a
 Before runtime exposure, the owner still needs qualified framework dependency adoption, trusted signed identity and case-to-tenant authority wiring, canonical paired-audit schema/ACL/owner installation, fresh owned PostgreSQL transaction/CAS/concurrency/cancellation tests, and current full producer/Maven/SDK integration. Java scoped checks do not establish database-wide tenant RLS or immutable history. Other legacy single-row schedule/case/syndication/disbursement operations are not converted by this slice and must not be represented as audited financial acceptance.
 
 The standard repository commands remain `mvn clean test` and `mvn verify`. They were not run for the source-only qualification. Its genuine-JAR direct compiler/JUnit replay is a separate result, not Maven, publication, live database or whole-journey acceptance.
+
+## Bounded HTTP refusal contract
+
+The actual calendar controller remains on `AmortizationCalendarOperations`; the
+shared framework error handler renders its typed errors. Missing explicit
+`AuditedCalendarResources` now returns503 with code
+`CALENDAR_OWNER_UNAVAILABLE`, before business ConnectionFactory interaction. This
+is missing installation, not an authorization decision or evidence of rollback.
+It carries no automatic Retry-After recommendation.
+
+Invalid inputs rejected while capturing the command, before the owned root,
+return400 with fixed code `CALENDAR_INPUT_INVALID`. HTTP bean-validation errors
+retain the shared `VALIDATION_ERROR`400 response. The shared handler also supports
+negotiated Problem JSON. Messages do not contain caller terms, internal causes or
+resource identifiers. URL/DTO/service interfaces and checked-in SDK/OpenAPI remain
+unchanged; genuine producer/SDK regeneration and full Maven remain separate gates.
+
+**Inside-root input/convention HTTP classification remains OPEN.** The bounded
+root deliberately replaces work exceptions with technical transaction facts.
+A captured private validation marker plus WORK/rollback/cleanup facts does not
+prove that the original signal survived a deadline or rollback race. This block
+does not unwrap or relabel those failures, move locked-case checks outside the
+transaction, or convert arbitrary audit, database, authorization, timeout,
+post-commit or cleanup failures to400/503. A separately qualified typed rejection
+provenance protocol is required before claiming that contract. The retained
+counterexamples are explicitly outside this passing first-block test claim.
+
+The controller-context regression belongs in the web module. Core tests no longer
+import project web/controller classes. Source qualification compiles production
+modules in dependency order and Core tests without any project web classes;
+WebFlux HTTP tests use the real controller, missing-owner service and shared
+handler without an HTTP listener, database or invented admission. This proves the
+bounded refusal paths, not startup/security/financial acceptance.
